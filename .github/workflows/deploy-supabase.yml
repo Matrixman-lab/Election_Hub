@@ -1,0 +1,42 @@
+name: Deploy Supabase Functions
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-functions:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_REF: ${{ secrets.PROJECT_REF }}
+      SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+      PROJECT_URL: ${{ secrets.PROJECT_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies (optional)
+        run: npm ci || true
+
+      - name: Link Supabase project
+        run: npx supabase@latest link --project-ref $PROJECT_REF
+
+      - name: Ensure secrets present (idempotent)
+        run: |
+          npx supabase@latest secrets set SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" PROJECT_URL="$PROJECT_URL" || true
+
+      - name: Deploy functions
+        run: |
+          npx supabase@latest functions deploy sync-candidates --project-ref $PROJECT_REF
+          npx supabase@latest functions deploy fetch-news --project-ref $PROJECT_REF
+          npx supabase@latest functions deploy generate-bio --project-ref $PROJECT_REF
+          npx supabase@latest functions deploy daily-election-update --project-ref $PROJECT_REF
+
+      - name: List deployed functions
+        run: npx supabase@latest functions list --project-ref $PROJECT_REF
